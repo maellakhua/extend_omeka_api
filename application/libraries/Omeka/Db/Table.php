@@ -272,9 +272,22 @@ class Omeka_Db_Table
      * @param integer $page Page to retrieve.
      * @return array|null The set of objects that is returned
      */
-    public function findBy($params = array(), $limit = null, $page = null)
+    // public function findBy($params = array(), $limit = null, $page = null)
+    // {
+    //     $select = $this->getSelectForFindBy($params);
+    //     if ($limit) {
+    //         $this->applyPagination($select, $limit, $page);
+    //     }
+    //     return $this->fetchObjects($select);
+    // }
+    public function findBy($params = array(), $limit = null, $page = null, $apiCall = null)
     {
-        $select = $this->getSelectForFindBy($params);
+        if(!is_null($apiCall)) {
+            $select = $this->getSelectForFindBy($params, TRUE);
+        } else {
+            $select = $this->getSelectForFindBy($params);
+        }
+
         if ($limit) {
             $this->applyPagination($select, $limit, $page);
         }
@@ -301,13 +314,42 @@ class Omeka_Db_Table
      * @param array $params optional Set of named search parameters.
      * @return Omeka_Db_Select
      */
-    public function getSelectForFindBy($params = array())
-    {
-        $params = apply_filters($this->_getHookName('browse_params'), $params);
+    // public function getSelectForFindBy($params = array())
+    // {
+    //     $params = apply_filters($this->_getHookName('browse_params'), $params);
         
+    //     $select = $this->getSelect();
+    //     $sortParams = $this->_getSortParams($params);
+        
+    //     if ($sortParams) {
+    //         list($sortField, $sortDir) = $sortParams;
+    //         $this->applySorting($select, $sortField, $sortDir);
+
+    //         if ($select->getPart(Zend_Db_Select::ORDER)
+    //             && $sortField != 'id'
+    //         ) {
+    //             $alias = $this->getTableAlias();
+    //             $select->order("$alias.id $sortDir");
+    //         }
+    //     }
+        
+    //     $this->applySearchFilters($select, $params);
+        
+    //     fire_plugin_hook($this->_getHookName('browse_sql'), 
+    //                      array('select' => $select, 'params' => $params));
+        
+    //     return $select;
+    // }
+    public function getSelectForFindBy($params = array(), $apiCall=null)
+    {
+        if(!is_null($apiCall)) {
+            $params = apply_filters($this->_getHookName('browse_params'), $params['api_params']);
+        } else {
+            $params = apply_filters($this->_getHookName('browse_params'), $params);
+        }
         $select = $this->getSelect();
         $sortParams = $this->_getSortParams($params);
-        
+
         if ($sortParams) {
             list($sortField, $sortDir) = $sortParams;
             $this->applySorting($select, $sortField, $sortDir);
@@ -319,9 +361,15 @@ class Omeka_Db_Table
                 $select->order("$alias.id $sortDir");
             }
         }
+
+        if(!is_null($apiCall)) {
+            $this->applySearchApiFilters($select, $params);
+        } else {
+            $this->applySearchFilters($select, $params);
+        }
         
-        $this->applySearchFilters($select, $params);
-        
+        // print_r($select);
+
         fire_plugin_hook($this->_getHookName('browse_sql'), 
                          array('select' => $select, 'params' => $params));
         
@@ -372,6 +420,29 @@ class Omeka_Db_Table
                 }
             }
         }
+    }
+
+    public function applySearchApiFilters($select, $params)
+    {
+        $where = '(`search_texts`.`text`) LIKE ?';
+        $select->where($where, "%{$params[0]}%");
+
+
+        // Must fire the "search_sql" hook here instead of relying on the native
+        // "search_text_browse_sql" hook to ensure that the subsequent WHERE
+        // clauses are not reset. This hook can be used when a custom search
+        // strategy is added using the "search_query_types" filter.
+        fire_plugin_hook('search_sql', array('select' => $select, 'params' => $params[0]));
+
+        // Search only those record types that are configured to be searched.
+        $searchRecordTypes = get_custom_search_record_types();
+        if ($searchRecordTypes) {
+            $select->orWhere('`search_texts`.`record_type` = ?', $params[0]);
+        }
+
+        // Restrict access to private records.
+        $showNotPublic = Zend_Registry::get('bootstrap')->getResource('Acl')
+            ->isAllowed(current_user(), 'Search', 'showNotPublic');
     }
     
     /**
