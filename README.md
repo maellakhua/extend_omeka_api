@@ -1,4 +1,4 @@
-# Welcome to Omeka
+﻿# Welcome to Omeka
 
 © 2008-2015 [Roy Rosenzweig Center for History and New Media](http://chnm.gmu.edu/)
 
@@ -28,3 +28,7 @@ licenses.
 
 Release notes for Omeka are available at
 [http://omeka.org/codex/Release_Notes](http://omeka.org/codex/Release_Notes).
+
+Modifications to original Omeka:
+
+* extended search api
