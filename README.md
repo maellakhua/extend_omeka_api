@@ -28,7 +28,3 @@ licenses.
 
 Release notes for Omeka are available at
 [http://omeka.org/codex/Release_Notes](http://omeka.org/codex/Release_Notes).
-
-Modifications to original Omeka:
-
-* extended search api
